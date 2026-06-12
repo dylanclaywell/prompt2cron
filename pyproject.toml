@@ -1,6 +1,6 @@
 [project]
 name = "prompt2cron"
-version = "0.1.0"
+version = "0.2.0"
 description = "A CustomTkinter desktop app that converts natural language to crontab notation using Claude, with reverse cron-to-English verification."
 readme = "README.md"
 requires-python = ">=3.10"
