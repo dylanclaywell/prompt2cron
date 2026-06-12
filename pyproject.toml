@@ -1,0 +1,25 @@
+[project]
+name = "prompt2cron"
+version = "0.1.0"
+description = "A CustomTkinter desktop app that converts natural language to crontab notation using Claude, with reverse cron-to-English verification."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter>=5.2.2",
+    "anthropic>=0.49.0",
+    "cron-descriptor>=1.4.5",
+    "keyring>=25.0.0",
+]
+
+[project.scripts]
+prompt2cron = "prompt2cron.app:main"
+
+[dependency-groups]
+dev = ["pyinstaller>=6.10"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["prompt2cron"]

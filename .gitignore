@@ -1,0 +1,40 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# --- Packaging / build output ---
+build/
+dist/
+*.manifest
+# (prompt2cron.spec is source — intentionally NOT ignored)
+
+# --- uv / virtualenv ---
+.venv/
+# uv.lock is committed for reproducible builds — do not ignore it.
+
+# --- Test / type / lint caches ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Secrets / local env ---
+.env
+.env.*
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Tooling indexes ---
+.julie/

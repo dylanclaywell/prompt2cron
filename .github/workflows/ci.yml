@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Import smoke test
+        run: uv run python -c "import prompt2cron.app; import prompt2cron.claude_client; print('imports ok')"
+
+      - name: Build standalone app
+        run: uv run pyinstaller prompt2cron.spec --noconfirm --clean
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt2cron-windows
+          path: dist/prompt2cron
+          retention-days: 7
+          if-no-files-found: error
