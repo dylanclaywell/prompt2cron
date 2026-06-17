@@ -8,11 +8,16 @@ A CustomTkinter UI with two complementary directions:
 The reverse description updates live as the cron field changes, so the user can
 verify Claude's output, hand-edit it, or type their own schedule from scratch
 and immediately see what it means.
+
+Visually it's dressed in the same synthwave palette as the app icon: a deep
+indigo night, neon cyan and hot-magenta accents, a monospace voice, and a drawn
+outrun grid + banded retro sun across the header.
 """
 
 from __future__ import annotations
 
 import threading
+import tkinter as tk
 
 import customtkinter as ctk
 from cron_descriptor import Options, ExpressionDescriptor
@@ -20,11 +25,72 @@ from cron_descriptor import Options, ExpressionDescriptor
 from . import config
 from .claude_client import CronConversionError, natural_language_to_cron
 
-MONO = ("Cascadia Code", "Consolas", "monospace")
+MONO = ("JetBrains Mono", "Cascadia Code", "Consolas", "monospace")
 
-ERROR_COLOR = ("#c0392b", "#ff6b6b")
-MUTED_COLOR = ("gray45", "gray60")
-BODY_COLOR = ("gray10", "gray90")
+# ---- synthwave palette (pulled from icon.svg) -------------------------------
+# Committed dark — outrun has no daytime. Single hex values, not (light, dark)
+# tuples, because every surface is part of one night scene.
+BG_DEEP = "#160427"     # window night
+SURFACE = "#221043"     # raised card
+SURFACE_2 = "#1b0a36"   # inset fields
+PURPLE = "#6e2f87"      # icon gradient top, softened
+CYAN = "#56cfd2"        # neon accent / headings, eased off full electric
+CYAN_DIM = "#2a7174"    # quiet borders
+PINK = "#e0479f"        # hot magenta, muted a touch
+PINK_HOVER = "#ec63b1"
+TEXT = "#f3e9ff"        # lavender white
+MUTED = "#9a7fb8"       # muted lavender
+ERROR_COLOR = "#ff5c7a"
+
+# Color names kept for any external reference; mapped onto the palette above.
+MUTED_COLOR = MUTED
+BODY_COLOR = TEXT
+
+
+def _lerp(c1: str, c2: str, t: float) -> str:
+    """Interpolate between two #rrggbb colors. t in [0, 1]."""
+    r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
+    r2, g2, b2 = int(c2[1:3], 16), int(c2[3:5], 16), int(c2[5:7], 16)
+    return "#%02x%02x%02x" % (
+        round(r1 + (r2 - r1) * t),
+        round(g1 + (g2 - g1) * t),
+        round(b1 + (b2 - b1) * t),
+    )
+
+
+class SynthwaveBanner(tk.Canvas):
+    """The header: a quiet night bar carrying the neon wordmark, with one thin
+    pink→cyan horizon rule along the bottom as a restrained synthwave nod.
+
+    Redrawn on resize so the rule and wordmark stay placed.
+    """
+
+    def __init__(self, master: tk.Misc, **kwargs) -> None:
+        super().__init__(
+            master, height=104, highlightthickness=0, bd=0,
+            bg="#1a0935", **kwargs,
+        )
+        self.bind("<Configure>", lambda _e: self._draw())
+
+    def _draw(self) -> None:
+        self.delete("all")
+        w, h = self.winfo_width(), self.winfo_height()
+        if w < 10:
+            return
+
+        # --- neon wordmark with a soft magenta glow offset
+        ty = h * 0.42
+        self.create_text(26, ty + 2, anchor="w", text="prompt2cron",
+                         font=(MONO[0], 26, "bold"), fill=PINK)
+        self.create_text(24, ty, anchor="w", text="prompt2cron",
+                         font=(MONO[0], 26, "bold"), fill=CYAN)
+        self.create_text(25, ty + 25, anchor="w", text="natural language  →  crontab",
+                         font=(MONO[0], 10), fill="#b69ad6")
+
+        # --- single horizon rule: pink at the left bleeding into cyan
+        ry = h - 3
+        for x in range(w):
+            self.create_line(x, ry, x, h, fill=_lerp(PINK, CYAN, x / max(1, w)))
 
 
 class AutoHideScrollableFrame(ctk.CTkScrollableFrame):
@@ -55,13 +121,15 @@ class SettingsDialog(ctk.CTkToplevel):
         self.geometry("480x270")
         self.resizable(False, False)
         self.transient(parent)
+        self.configure(fg_color=BG_DEEP)
 
         self.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
             self,
-            text="Anthropic API Key",
-            font=ctk.CTkFont(size=17, weight="bold"),
+            text="ANTHROPIC API KEY",
+            font=ctk.CTkFont(family=MONO[0], size=16, weight="bold"),
+            text_color=CYAN,
         ).grid(row=0, column=0, sticky="w", padx=24, pady=(22, 2))
 
         ctk.CTkLabel(
@@ -82,6 +150,10 @@ class SettingsDialog(ctk.CTkToplevel):
             show="•",
             height=38,
             placeholder_text="sk-ant-…",
+            fg_color=SURFACE_2,
+            border_color=CYAN_DIM,
+            text_color=CYAN,
+            font=ctk.CTkFont(family=MONO[0], size=13),
         )
         self.key_entry.grid(row=2, column=0, sticky="ew", padx=24, pady=(0, 6))
 
@@ -94,6 +166,10 @@ class SettingsDialog(ctk.CTkToplevel):
             checkbox_width=18,
             checkbox_height=18,
             font=ctk.CTkFont(size=12),
+            fg_color=PINK,
+            hover_color=PINK_HOVER,
+            border_color=CYAN_DIM,
+            text_color=TEXT,
         ).grid(row=3, column=0, sticky="w", padx=24, pady=(0, 16))
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
@@ -102,15 +178,19 @@ class SettingsDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             buttons, text="Clear", width=92, fg_color="transparent",
-            border_width=1, text_color=BODY_COLOR, command=self._clear,
+            border_width=1, border_color=CYAN_DIM, text_color=CYAN,
+            hover_color=SURFACE, command=self._clear,
         ).grid(row=0, column=1, padx=(0, 8))
         ctk.CTkButton(
             buttons, text="Cancel", width=92, fg_color="transparent",
-            border_width=1, text_color=BODY_COLOR, command=self.destroy,
+            border_width=1, border_color=CYAN_DIM, text_color=CYAN,
+            hover_color=SURFACE, command=self.destroy,
         ).grid(row=0, column=2, padx=(0, 8))
-        ctk.CTkButton(buttons, text="Save", width=92, command=self._save).grid(
-            row=0, column=3
-        )
+        ctk.CTkButton(
+            buttons, text="Save", width=92, fg_color=PINK,
+            hover_color=PINK_HOVER, text_color=BG_DEEP,
+            font=ctk.CTkFont(weight="bold"), command=self._save,
+        ).grid(row=0, column=3)
 
         self.status = ctk.CTkLabel(
             self, text="", text_color=MUTED_COLOR,
@@ -151,11 +231,13 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("prompt2cron")
-        self.geometry("660x620")
-        self.minsize(560, 560)
+        self.geometry("660x640")
+        self.minsize(560, 580)
 
+        # Committed synthwave night — dark is the only mode.
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+        self.configure(fg_color=BG_DEEP)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -163,43 +245,27 @@ class App(ctk.CTk):
         self.cron_var = ctk.StringVar()
         self.cron_var.trace_add("write", self._on_cron_changed)
 
-        self._build_toolbar()
+        self._build_header()
         self._build_body()
         self._show_key_hint()
 
-    # ---- toolbar --------------------------------------------------------
+    # ---- header ---------------------------------------------------------
 
-    def _build_toolbar(self) -> None:
-        bar = ctk.CTkFrame(self, height=56, corner_radius=0,
-                           fg_color=("gray88", "gray14"))
+    def _build_header(self) -> None:
+        bar = ctk.CTkFrame(self, height=104, corner_radius=0, fg_color="#1a0935")
         bar.grid(row=0, column=0, sticky="ew")
-        bar.grid_columnconfigure(1, weight=1)
         bar.grid_propagate(False)
 
-        ctk.CTkLabel(
-            bar, text="⏱  prompt2cron",
-            font=ctk.CTkFont(size=18, weight="bold"),
-        ).grid(row=0, column=0, sticky="w", padx=20, pady=12)
+        SynthwaveBanner(bar).pack(fill="both", expand=True)
 
-        controls = ctk.CTkFrame(bar, fg_color="transparent")
-        controls.grid(row=0, column=2, sticky="e", padx=16)
-
-        self.appearance = ctk.CTkSegmentedButton(
-            controls, values=["Light", "Dark", "System"],
-            command=self._set_appearance, width=200,
-            font=ctk.CTkFont(size=12),
-        )
-        self.appearance.set("Dark")
-        self.appearance.grid(row=0, column=0, padx=(0, 12))
-
+        # API-key control floats over the night sky, top-right.
         ctk.CTkButton(
-            controls, text="⚙  API Key", width=96,
-            fg_color="transparent", border_width=1, text_color=BODY_COLOR,
+            bar, text="⚙  API Key", width=104, height=30,
+            fg_color="transparent", border_width=1, border_color=CYAN,
+            text_color=CYAN, hover_color="#2a0d4a",
+            font=ctk.CTkFont(family=MONO[0], size=12),
             command=self._open_settings,
-        ).grid(row=0, column=1)
-
-    def _set_appearance(self, value: str) -> None:
-        ctk.set_appearance_mode(value.lower())
+        ).place(relx=1.0, x=-16, y=16, anchor="ne")
 
     def _open_settings(self) -> None:
         SettingsDialog(self).grab_set()
@@ -224,11 +290,14 @@ class App(ctk.CTk):
         body.grid_columnconfigure(0, weight=1)
 
         # --- input card ---
-        in_card = ctk.CTkFrame(body, corner_radius=14)
+        in_card = ctk.CTkFrame(
+            body, corner_radius=14, fg_color=SURFACE,
+            border_width=1, border_color=PURPLE,
+        )
         in_card.grid(row=0, column=0, sticky="ew", pady=(0, 16))
         in_card.grid_columnconfigure(0, weight=1)
 
-        self._card_heading(in_card, "Describe a schedule").grid(
+        self._card_heading(in_card, "DESCRIBE A SCHEDULE").grid(
             row=0, column=0, sticky="w", padx=18, pady=(16, 0)
         )
         ctk.CTkLabel(
@@ -238,23 +307,29 @@ class App(ctk.CTk):
 
         self.prompt_entry = ctk.CTkTextbox(
             in_card, height=72, wrap="word", corner_radius=10,
-            font=ctk.CTkFont(size=14),
+            font=ctk.CTkFont(size=14), fg_color=SURFACE_2,
+            border_width=1, border_color=CYAN_DIM, text_color=TEXT,
         )
         self.prompt_entry.grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 12))
         self.prompt_entry.bind("<Control-Return>", lambda e: self._convert())
 
         self.convert_btn = ctk.CTkButton(
-            in_card, text="Convert to cron  ↓", height=40,
-            font=ctk.CTkFont(size=14, weight="bold"), command=self._convert,
+            in_card, text="CONVERT TO CRON  ↓", height=40,
+            font=ctk.CTkFont(family=MONO[0], size=14, weight="bold"),
+            fg_color=PINK, hover_color=PINK_HOVER, text_color=BG_DEEP,
+            command=self._convert,
         )
         self.convert_btn.grid(row=3, column=0, sticky="ew", padx=18, pady=(0, 18))
 
         # --- output card ---
-        out_card = ctk.CTkFrame(body, corner_radius=14)
+        out_card = ctk.CTkFrame(
+            body, corner_radius=14, fg_color=SURFACE,
+            border_width=1, border_color=PURPLE,
+        )
         out_card.grid(row=1, column=0, sticky="ew")
         out_card.grid_columnconfigure(0, weight=1)
 
-        self._card_heading(out_card, "Cron expression").grid(
+        self._card_heading(out_card, "CRON EXPRESSION").grid(
             row=0, column=0, sticky="w", padx=18, pady=(16, 10)
         )
 
@@ -266,12 +341,15 @@ class App(ctk.CTk):
             entry_row, textvariable=self.cron_var, height=44,
             font=ctk.CTkFont(family=MONO[0], size=18),
             placeholder_text="* * * * *", justify="center",
+            fg_color=SURFACE_2, border_width=2, border_color=CYAN,
+            text_color=CYAN,
         )
         self.cron_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
         self.copy_btn = ctk.CTkButton(
             entry_row, text="Copy", width=70, height=44,
-            fg_color="transparent", border_width=1, text_color=BODY_COLOR,
+            fg_color="transparent", border_width=1, border_color=CYAN_DIM,
+            text_color=CYAN, hover_color=SURFACE_2,
             command=self._copy_cron,
         )
         self.copy_btn.grid(row=0, column=1)
@@ -282,17 +360,17 @@ class App(ctk.CTk):
             text_color=MUTED_COLOR, font=ctk.CTkFont(size=11), anchor="w",
         ).grid(row=2, column=0, sticky="ew", padx=18, pady=(0, 14))
 
-        ctk.CTkFrame(out_card, height=1, fg_color=("gray80", "gray25")).grid(
+        ctk.CTkFrame(out_card, height=1, fg_color=PINK).grid(
             row=3, column=0, sticky="ew", padx=18
         )
 
         ctk.CTkLabel(
-            out_card, text="WHAT IT MEANS", text_color=MUTED_COLOR,
-            font=ctk.CTkFont(size=11, weight="bold"), anchor="w",
+            out_card, text="WHAT IT MEANS", text_color=PINK,
+            font=ctk.CTkFont(family=MONO[0], size=11, weight="bold"), anchor="w",
         ).grid(row=4, column=0, sticky="w", padx=18, pady=(14, 2))
 
         self.description_label = ctk.CTkLabel(
-            out_card, text="—", font=ctk.CTkFont(size=16),
+            out_card, text="—", font=ctk.CTkFont(size=16), text_color=MUTED,
             wraplength=560, justify="left", anchor="w",
         )
         self.description_label.grid(row=5, column=0, sticky="ew", padx=18, pady=(0, 18))
@@ -309,7 +387,8 @@ class App(ctk.CTk):
 
     def _card_heading(self, parent: ctk.CTkBaseClass, text: str) -> ctk.CTkLabel:
         return ctk.CTkLabel(
-            parent, text=text, font=ctk.CTkFont(size=15, weight="bold"), anchor="w"
+            parent, text=text, text_color=CYAN,
+            font=ctk.CTkFont(family=MONO[0], size=14, weight="bold"), anchor="w"
         )
 
     def _on_resize(self, event: object) -> None:
@@ -334,7 +413,7 @@ class App(ctk.CTk):
             self._set_status("Type a schedule in plain English first.", error=True)
             return "break"
 
-        self.convert_btn.configure(state="disabled", text="Converting…")
+        self.convert_btn.configure(state="disabled", text="CONVERTING…")
         self._set_status("Asking Claude…")
 
         threading.Thread(target=self._convert_worker, args=(prompt,), daemon=True).start()
@@ -360,7 +439,7 @@ class App(ctk.CTk):
         self._reset_convert_button()
 
     def _reset_convert_button(self) -> None:
-        self.convert_btn.configure(state="normal", text="Convert to cron  ↓")
+        self.convert_btn.configure(state="normal", text="CONVERT TO CRON  ↓")
 
     # ---- reverse: cron -> English --------------------------------------
 
@@ -380,7 +459,7 @@ class App(ctk.CTk):
             )
             return
 
-        self.description_label.configure(text=description, text_color=BODY_COLOR)
+        self.description_label.configure(text=description, text_color=TEXT)
 
     # ---- helpers --------------------------------------------------------
 
