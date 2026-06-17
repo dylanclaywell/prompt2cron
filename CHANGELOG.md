@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/dylanclaywell/prompt2cron/compare/prompt2cron-v0.2.0...prompt2cron-v0.3.0) (2026-06-17)
+
+
+### Features
+
+* add application icon to bundled executable ([d8f2229](https://github.com/dylanclaywell/prompt2cron/commit/d8f2229ca484bcb39c99a5e86e12fe164f0a700c))
+
 ## [0.2.0](https://github.com/dylanclaywell/prompt2cron/compare/prompt2cron-v0.1.0...prompt2cron-v0.2.0) (2026-06-12)
 
 
