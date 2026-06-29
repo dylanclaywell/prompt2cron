@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/dylanclaywell/prompt2cron/compare/prompt2cron-v0.3.0...prompt2cron-v0.4.0) (2026-06-17)
+
+
+### Features
+
+* **ui:** reskin app in synthwave style to match icon ([6a65424](https://github.com/dylanclaywell/prompt2cron/commit/6a654241c79e6ec1acd85df317d49ea3ad09b242))
+
 ## [0.3.0](https://github.com/dylanclaywell/prompt2cron/compare/prompt2cron-v0.2.0...prompt2cron-v0.3.0) (2026-06-17)
 
 
